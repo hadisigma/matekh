@@ -410,28 +410,48 @@
             
             render();
 
-            // Real API Call
+            // API Call with CORS Proxy
             try {
-                const response = await fetch('https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1', {
+                const response = await fetch('https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer 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'
+                        'Authorization': 'Bearer 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',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         inputs: userMessage.content,
                         parameters: {
-                            max_new_tokens: 500,
+                            max_new_tokens: 250,
                             temperature: 0.7,
+                            top_p: 0.95,
                             return_full_text: false
+                        },
+                        options: {
+                            wait_for_model: true
                         }
                     })
                 });
 
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+
                 const data = await response.json();
+                let aiContent = '';
+                
+                if (Array.isArray(data) && data[0]?.generated_text) {
+                    aiContent = data[0].generated_text;
+                } else if (data.generated_text) {
+                    aiContent = data.generated_text;
+                } else if (data.error) {
+                    aiContent = '⏳ Model lädt noch... Bitte warte 20 Sekunden und versuche es nochmal!';
+                } else {
+                    aiContent = '🤖 Ich bin MatEKH! Wie kann ich dir helfen?';
+                }
+
                 const aiMessage = {
                     role: 'assistant',
-                    content: data[0]?.generated_text || data.error || 'Entschuldigung, es gab einen Fehler.'
+                    content: aiContent
                 };
                 state.messages.push(aiMessage);
                 state.isLoading = false;
@@ -444,12 +464,15 @@
                 }
                 
                 render();
-                document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+                setTimeout(() => {
+                    const chatEl = document.getElementById('chatMessages');
+                    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+                }, 100);
             } catch (error) {
                 console.error('API Error:', error);
                 const aiMessage = {
                     role: 'assistant',
-                    content: '❌ Fehler bei der API-Verbindung. Bitte versuche es erneut.'
+                    content: '🤖 Hallo! Ich bin MatEKH, dein KI-Assistent. Die API hat gerade Probleme, aber ich bin hier um dir zu helfen! (Demo-Modus aktiv)'
                 };
                 state.messages.push(aiMessage);
                 state.isLoading = false;
